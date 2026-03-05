@@ -632,52 +632,79 @@ class _HomePageState extends State<HomePage> {
       _lowStockGroups = lowGroups;
 
       // ---------- (B) Out of stock (ยอดรวม = 0) จาก v_drug_stock_summary ----------
-      try {
-        final sum = await sb
-            .from('v_drug_stock_summary')
-            .select(
-                'drug_id, on_hand_base, stock_status, drugs(code, generic_name, brand_name, base_unit, reorder_point, expiry_alert_days)')
-            .eq('owner_id', ownerId);
+      // ---------- (B) Out of stock (ยอดรวม = 0) จาก v_drug_stock_summary ----------
+// ✅ 2-step: เอา drug_id ที่ out ก่อน แล้วค่อยไปดึงชื่อจากตาราง drugs (กันปัญหา embed view)
+try {
+  final sum = await sb
+      .from('v_drug_stock_summary')
+      .select('drug_id, stock_status, on_hand_base')
+      .eq('owner_id', ownerId);
 
-        final outGroups = <_DrugAlertGroup>[];
-        for (final r in (sum as List)) {
-          final st = (r['stock_status'] ?? '').toString();
-          if (st != 'out') continue;
+  final outIds = <String>[];
+  for (final r in (sum as List)) {
+    final st = (r['stock_status'] ?? '').toString();
+    if (st != 'out') continue;
 
-          final drugId = (r['drug_id'] ?? '').toString();
-          if (drugId.isEmpty) continue;
+    final drugId = (r['drug_id'] ?? '').toString();
+    if (drugId.isEmpty) continue;
 
-          final d = (r['drugs'] as Map?) ?? {};
-          final code = (d['code'] ?? '').toString();
-          final g = (d['generic_name'] ?? '-').toString();
-          final b = (d['brand_name'] ?? '').toString();
-          final baseUnit = (d['base_unit'] ?? '').toString();
-          final rp = (d['reorder_point'] as num?) ?? 0;
-          final ead = (d['expiry_alert_days'] as num?)?.toInt() ?? 90;
+    outIds.add(drugId);
+  }
 
-          final name = b.trim().isNotEmpty ? '$g ($b)' : g;
+  if (outIds.isEmpty) {
+    _outStockGroups = [];
+  } else {
+    // ดึงข้อมูลยาเพื่อโชว์ชื่อรายการ
+    final drugRows = await sb
+        .from('drugs')
+        .select('id, code, generic_name, brand_name, base_unit, reorder_point, expiry_alert_days')
+        .eq('owner_id', ownerId)
+        .inFilter('id', outIds);
 
-          outGroups.add(
-            _DrugAlertGroup(
-              info: _DrugInfo(
-                drugId: drugId,
-                code: code,
-                name: name,
-                baseUnit: baseUnit,
-                reorderPoint: rp,
-                expiryAlertDays: ead,
-              ),
-              lots: const [],
-              totalBase: 0,
-            ),
-          );
-        }
+    final byId = <String, Map<String, dynamic>>{};
+    for (final d in (drugRows as List)) {
+      final m = Map<String, dynamic>.from(d as Map);
+      final id = (m['id'] ?? '').toString();
+      if (id.isNotEmpty) byId[id] = m;
+    }
 
-        outGroups.sort((a, b) => a.info.name.compareTo(b.info.name));
-        _outStockGroups = outGroups;
-      } catch (_) {
-        _outStockGroups = [];
-      }
+    final outGroups = <_DrugAlertGroup>[];
+    for (final id in outIds) {
+      final d = byId[id];
+      if (d == null) continue;
+
+      final code = (d['code'] ?? '').toString();
+      final g = (d['generic_name'] ?? '-').toString();
+      final b = (d['brand_name'] ?? '').toString();
+      final baseUnit = (d['base_unit'] ?? '').toString();
+      final rp = (d['reorder_point'] as num?) ?? 0;
+      final ead = (d['expiry_alert_days'] as num?)?.toInt() ?? 90;
+
+      final name = b.trim().isNotEmpty ? '$g ($b)' : g;
+
+      outGroups.add(
+        _DrugAlertGroup(
+          info: _DrugInfo(
+            drugId: id,
+            code: code,
+            name: name,
+            baseUnit: baseUnit,
+            reorderPoint: rp,
+            expiryAlertDays: ead,
+          ),
+          lots: const [], // out stock ไม่มีล็อตคงเหลือ
+          totalBase: 0,
+        ),
+      );
+    }
+
+    outGroups.sort((a, b) => a.info.name.compareTo(b.info.name));
+    _outStockGroups = outGroups;
+  }
+} catch (e) {
+  debugPrint('load outStock groups error: $e');
+  _outStockGroups = [];
+}
     } catch (e) {
       debugPrint('loadAlertDetails error: $e');
       _expiredGroups = [];
