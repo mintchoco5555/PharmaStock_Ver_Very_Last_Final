@@ -13,6 +13,9 @@ import 'profile_page.dart';
 import 'security_page.dart';
 import 'partners/manufacturers_page.dart';
 import 'partners/suppliers_page.dart';
+import '../stock/stock_in_page.dart';
+import '../stock/stock_out_page.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 // ✅ เพิ่ม: หน้าดูรายการยาทั้งหมด (active + inactive)
 import 'all_drugs_page.dart';
@@ -85,6 +88,12 @@ class _HomePageState extends State<HomePage> {
   List<_DrugAlertGroup> _nearExpireGroups = [];
   List<_DrugAlertGroup> _lowStockGroups = [];
   List<_DrugAlertGroup> _outStockGroups = [];
+
+
+  // ===== Color =====
+  static const Color _inColor = Color(0xFF16A34A); // ✅ Green
+  static const Color _outColor = Color(0xFFEF4444); // ✅ Red
+  static const Color _brandBlue = Color(0xFF2158B6);
 
   @override
   void initState() {
@@ -1632,140 +1641,237 @@ try {
               ),
             ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
+           Column(
+            children: [
 
-            if (_expiredCount > 0 || _nearExpireCount > 0)
-              _panelNoFuzz(
-                title: 'แจ้งเตือน: วันหมดอายุ',
-                icon: Icons.schedule_rounded,
-                child: Column(
-                  children: [
-                    if (_expiredCount > 0)
-                      _alertRow(
-                        Icons.error_outline_rounded,
-                        'ล็อตหมดอายุ $_expiredCount รายการ',
-                        Colors.red,
-                        onTap: () => _openAlertSheet(_AlertType.expired),
-                      ),
-                    if (_nearExpireCount > 0)
-                      _alertRow(
-                        Icons.schedule_rounded,
-                        'ล็อตใกล้หมดอายุ $_nearExpireCount รายการ',
-                        Colors.orange,
-                        onTap: () => _openAlertSheet(_AlertType.nearExpire),
-                      ),
-                  ],
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _actionCard(
+                      icon: Icons.download_rounded,
+                      title: 'รับยาเข้า',
+                      subtitle: 'เพิ่มล็อตยา + วันหมดอายุ + จำนวน\nรองรับ',
+                      color: Colors.green,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StockInPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: _actionCard(
+                      icon: Icons.outbox_rounded,
+                      title: 'จ่ายยาออก',
+                      subtitle: 'ตัดล็อตอัตโนมัติแบบ FEFO + เก็บประวัติใบเสร็จ',
+                      color: Colors.red,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const StockOutPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
 
-            if (_expiredCount > 0 || _nearExpireCount > 0) const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-            if (_lowStockCount > 0 || _outStockCount > 0)
-              _panelNoFuzz(
-                title: 'แจ้งเตือน: สต็อกสินค้า',
-                icon: Icons.inventory_2_rounded,
-                child: Column(
-                  children: [
-                    if (_lowStockCount > 0)
-                      _alertRow(
-                        Icons.inventory_2_rounded,
-                        'ยาสต็อกต่ำ $_lowStockCount รายการ',
-                        Colors.deepOrange,
-                        onTap: () => _openAlertSheet(_AlertType.lowStock),
-                      ),
-                    if (_outStockCount > 0)
-                      _alertRow(
-                        Icons.remove_shopping_cart_rounded,
-                        'ยาไม่มีสต็อก $_outStockCount รายการ',
-                        Colors.redAccent,
-                        onTap: () => _openAlertSheet(_AlertType.outStock),
-                      ),
-                  ],
+              if (_lowStockCount > 0 || _outStockCount > 0)
+                _panelNoFuzz(
+                  title: 'แจ้งเตือน: สต็อกสินค้า',
+                  icon: Icons.inventory_2_rounded,
+                  child: Column(
+                    children: [
+                      if (_lowStockCount > 0)
+                        _alertRow(
+                          Icons.inventory_2_rounded,
+                          'ยาสต็อกต่ำ $_lowStockCount รายการ',
+                          Colors.deepOrange,
+                          onTap: () => _openAlertSheet(_AlertType.lowStock),
+                        ),
+                      if (_outStockCount > 0)
+                        _alertRow(
+                          Icons.remove_shopping_cart_rounded,
+                          'ยาไม่มีสต็อก $_outStockCount รายการ',
+                          Colors.redAccent,
+                          onTap: () => _openAlertSheet(_AlertType.outStock),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+
+            ],
+          ),
 
             const SizedBox(height: 12),
 
             LayoutBuilder(
               builder: (context, c) {
                 final wide = c.maxWidth >= 760;
-                final w = wide ? (c.maxWidth - 12) / 2 : c.maxWidth;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    SizedBox(
-                      width: w,
-                      child: _statCardNoFuzz(
+
+                if (!wide) {
+                  return Column(
+                    children: [
+                      _statCardNoFuzz(
                         title: 'ยาในระบบ',
                         value: '$_drugCount',
                         sub: 'จำนวนรายการยา (master)',
                         icon: Icons.medication_rounded,
                         tone: cs.primary,
                       ),
-                    ),
-                    SizedBox(
-                      width: w,
-                      child: _statCardNoFuzz(
-                        title: 'ล็อตที่มีของ',
-                        value: '$_lotCount',
-                        sub: 'นับเฉพาะล็อตคงเหลือ > 0',
-                        icon: Icons.inventory_2_rounded,
-                        tone: Colors.indigo,
-                      ),
-                    ),
-                    SizedBox(
-                      width: w,
-                      child: _statCardNoFuzz(
+                      const SizedBox(height: 12),
+
+                      _statCardNoFuzz(
                         title: 'กำไรโดยประมาณ',
                         value: '${_money(_profitEst)} ฿',
                         sub: 'ช่วง $_days วันล่าสุด',
                         icon: Icons.savings_rounded,
                         tone: _profitEst >= 0 ? Colors.green : Colors.red,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+
+                      _statCardNoFuzz(
+                        title: 'ล็อตที่มีของ',
+                        value: '$_lotCount',
+                        sub: 'นับเฉพาะล็อตคงเหลือ > 0',
+                        icon: Icons.inventory_2_rounded,
+                        tone: Colors.indigo,
+                      ),
+                      const SizedBox(height: 12),
+
+                      _panelNoFuzz(
+                        title: 'ภาพรวมล็อต (ปกติ/ใกล้หมด/หมดอายุ)',
+                        icon: Icons.pie_chart_rounded,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'คงเหลือรวม (หน่วยฐาน): ${_onHandBaseTotal.toStringAsFixed(2)} • ยาสต็อกต่ำ: $_lowStockCount • ยาไม่มีสต็อก: $_outStockCount',
+                              style: TextStyle(color: Colors.black.withOpacity(0.55)),
+                            ),
+                            const SizedBox(height: 10),
+                            _onHandByUnitChips(context),
+                            const SizedBox(height: 12),
+                            _lotPieChart(
+                              ok: okLots,
+                              near: _nearExpireCount,
+                              expired: _expiredCount,
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                _legendDot('ปกติ', Colors.green, '${_pct(okLots, totalLotForStatus)}%'),
+                                _legendDot('ใกล้หมด', Colors.orange,
+                                    '${_pct(_nearExpireCount, totalLotForStatus)}%'),
+                                _legendDot('หมดอายุ', Colors.red,
+                                    '${_pct(_expiredCount, totalLotForStatus)}%'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                final w = (c.maxWidth - 12) / 2;
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: w,
+                        child: Column(
+                          children: [
+                            _statCardNoFuzz(
+                              title: 'ยาในระบบ',
+                              value: '$_drugCount',
+                              sub: 'จำนวนรายการยา (master)',
+                              icon: Icons.medication_rounded,
+                              tone: cs.primary,
+                            ),
+                            const SizedBox(height: 12),
+
+                            _statCardNoFuzz(
+                              title: 'กำไรโดยประมาณ',
+                              value: '${_money(_profitEst)} ฿',
+                              sub: 'ช่วง $_days วันล่าสุด',
+                              icon: Icons.savings_rounded,
+                              tone: _profitEst >= 0 ? Colors.green : Colors.red,
+                            ),
+                            const SizedBox(height: 12),
+
+                            _statCardNoFuzz(
+                              title: 'ล็อตที่มีของ',
+                              value: '$_lotCount',
+                              sub: 'นับเฉพาะล็อตคงเหลือ > 0',
+                              icon: Icons.inventory_2_rounded,
+                              tone: Colors.indigo,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: _panelNoFuzz(
+                          title: 'ภาพรวมล็อต (ปกติ/ใกล้หมด/หมดอายุ)',
+                          icon: Icons.pie_chart_rounded,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'คงเหลือรวม (หน่วยฐาน): ${_onHandBaseTotal.toStringAsFixed(2)} • ยาสต็อกต่ำ: $_lowStockCount • ยาไม่มีสต็อก: $_outStockCount',
+                                style: TextStyle(color: Colors.black.withOpacity(0.55)),
+                              ),
+                              const SizedBox(height: 10),
+                              _onHandByUnitChips(context),
+                              const SizedBox(height: 12),
+                              _statusBar(
+                                ok: okLots,
+                                near: _nearExpireCount,
+                                expired: _expiredCount,
+                                total: totalLotForStatus,
+                              ),
+
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 8,
+                                children: [
+                                  _legendDot('ปกติ', Colors.green, '${_pct(okLots, totalLotForStatus)}%'),
+                                  _legendDot('ใกล้หมด', Colors.orange,
+                                      '${_pct(_nearExpireCount, totalLotForStatus)}%'),
+                                  _legendDot('หมดอายุ', Colors.red,
+                                      '${_pct(_expiredCount, totalLotForStatus)}%'),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
 
             const SizedBox(height: 12),
 
-            _panelNoFuzz(
-              title: 'ภาพรวมล็อต (ปกติ/ใกล้หมด/หมดอายุ)',
-              icon: Icons.pie_chart_rounded,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'คงเหลือรวม (หน่วยฐาน): ${_onHandBaseTotal.toStringAsFixed(2)} • ยาสต็อกต่ำ: $_lowStockCount • ยาไม่มีสต็อก: $_outStockCount',
-                    style: TextStyle(color: Colors.black.withOpacity(0.55)),
-                  ),
-                  const SizedBox(height: 10),
-                  _onHandByUnitChips(context),
-                  const SizedBox(height: 12),
-                  _statusBar(
-                    ok: okLots,
-                    near: _nearExpireCount,
-                    expired: _expiredCount,
-                    total: totalLotForStatus,
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
-                    children: [
-                      _legendDot('ปกติ', Colors.green, '${_pct(okLots, totalLotForStatus)}%'),
-                      _legendDot('ใกล้หมด', Colors.orange,
-                          '${_pct(_nearExpireCount, totalLotForStatus)}%'),
-                      _legendDot('หมดอายุ', Colors.red, '${_pct(_expiredCount, totalLotForStatus)}%'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
 
             _panelNoFuzz(
               title: '📊 กราฟเส้นยอดขาย',
@@ -2271,4 +2377,263 @@ class _TopDrug {
     required this.qtyBase,
     required this.sales,
   });
+}
+
+class _StockActionCard extends StatelessWidget {
+  final Color accent;
+  final Color iconBg;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String buttonText;
+  final VoidCallback onPressed;
+
+  const _StockActionCard({
+    required this.accent,
+    required this.iconBg,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.buttonText,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.65),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE6EEF7)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 50,
+            height: 35,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: accent.withOpacity(0.20)),
+            ),
+            child: Icon(icon, color: accent),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                      color: Colors.black.withOpacity(0.6), height: 1.35),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 40,
+                  child: ElevatedButton.icon(
+                    onPressed: onPressed,
+                    icon: const Icon(Icons.arrow_forward_rounded),
+                    label: Text(buttonText),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+//card
+Widget _actionCard({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+  required Color color,
+  required VoidCallback onTap,
+}) {
+
+  return Card(
+    elevation: 2,
+    color: color, // สีพื้นหลังสว่าง
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(14),
+
+                 border: Border.all(
+                  color: Colors.white70, // สีขอบ
+                  width: 2.5,
+                ),
+              
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+
+            const SizedBox(width: 14),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                     color: Colors.white,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 18,
+              color: Colors.white,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+//Pie Chart
+// Pie Chart ล็อตยา
+Widget _lotPieChart({
+  required int ok,
+  required int near,
+  required int expired,
+}) {
+  final total = ok + near + expired;
+
+  int _pct(int part, int total) {
+    if (total == 0) return 0;
+    return ((part / total) * 100).round();
+  }
+  
+  if (total == 0) {
+    return const SizedBox(
+      height: 160,
+      child: Center(
+        child: Text('ไม่มีข้อมูลล็อต'),
+      ),
+    );
+  }
+
+  return SizedBox(
+    height: 180,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        PieChart(
+          PieChartData(
+            sectionsSpace: 2,
+            centerSpaceRadius: 40,
+            startDegreeOffset: -90,
+            sections: [
+              PieChartSectionData(
+                value: ok.toDouble(),
+                color: Colors.green,
+                title: '${_pct(ok, total)}%',
+                radius: 50,
+                titleStyle: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              PieChartSectionData(
+                value: near.toDouble(),
+                color: Colors.orange,
+                title: '${_pct(near, total)}%',
+                radius: 50,
+                titleStyle: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              PieChartSectionData(
+                value: expired.toDouble(),
+                color: Colors.red,
+                title: '${_pct(expired, total)}%',
+                radius: 50,
+                titleStyle: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          swapAnimationDuration: const Duration(milliseconds: 500),
+        ),
+
+        /// ตัวเลขตรงกลาง
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'ล็อตทั้งหมด',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            Text(
+              '$total',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 }
